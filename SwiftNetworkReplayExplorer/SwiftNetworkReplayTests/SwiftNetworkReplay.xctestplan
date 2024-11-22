@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "2DAE689F-26E6-45C4-8CB0-233F50D68811",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:SwiftNetworkReplayExplorer.xcodeproj",
+        "identifier" : "603450EC2CF0B223005CC515",
+        "name" : "SwiftNetworkReplayTests"
+      }
+    }
+  ],
+  "version" : 1
+}
