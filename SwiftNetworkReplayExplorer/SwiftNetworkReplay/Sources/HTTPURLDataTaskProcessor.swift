@@ -7,14 +7,14 @@
 
 import Foundation
 
-protocol HTTPURLDataTaskProcessor {
+public protocol HTTPURLDataTaskProcessor {
     func encodeDataTaskResult(newRequest: URLRequest, data: Data, httpResponse: HTTPURLResponse) throws -> Data
     func decodeDataTaskResult(data: Data) throws -> (responseDataString: String, responseData: Data, responseHeaders: [String: String], statusCode: Int)
 }
 
-final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
+public final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
     
-    func encodeDataTaskResult(newRequest: URLRequest, data: Data, httpResponse: HTTPURLResponse) throws -> Data {
+    public func encodeDataTaskResult(newRequest: URLRequest, data: Data, httpResponse: HTTPURLResponse) throws -> Data {
         
         let filteredResponseHeaders = httpResponse.allHeaderFields.filter { key, _ in
             guard let keyString = key as? String else { return false }
@@ -45,7 +45,7 @@ final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
         )
     }
     
-    func decodeDataTaskResult(data: Data) throws -> (responseDataString: String, responseData: Data, responseHeaders: [String: String], statusCode: Int) {
+    public func decodeDataTaskResult(data: Data) throws -> (responseDataString: String, responseData: Data, responseHeaders: [String: String], statusCode: Int) {
         
         guard let responseObject = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
               let responseDataString = responseObject["responseData"] as? String,

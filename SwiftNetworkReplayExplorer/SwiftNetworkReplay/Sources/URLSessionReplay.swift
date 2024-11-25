@@ -8,7 +8,7 @@
 import os.log
 import Foundation
 
-protocol URLSessionReplay {
+public protocol URLSessionReplay {
     func setSession(dirrectoryPath: String, sessionFolderName: String)
     func performRequestAndRecord(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data)
     func replayRecordFor(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data)
@@ -18,38 +18,33 @@ protocol URLSessionReplay {
     func removeRecordingSessionFolder() throws
 }
 
-final class DefaultURLSessionReplay: URLSessionReplay {
+public final class DefaultURLSessionReplay: URLSessionReplay {
     
     private var session: URLSession = .shared
     
     var responseResolver: HTTPURLDataTaskProcessor = DefaultHTTPURLDataTaskProcessor()
     var fileManager: FileManagerProtocol = DefaultFileManager()
-    
     var recordingDirectory: RecordingDirectoryPathResolver = DefaultRecordingDirectoryPathResolver()
     var fileNameResolver: FileNameResolver = DefaultFileNameResolver()
-
     
     private let logger = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "SessionReplay"
     )
     
-    func doesRecordingExistsFor(request: URLRequest) -> Bool {
+    public func doesRecordingExistsFor(request: URLRequest) -> Bool {
         let fileURL = getFileUrl(request: request)
         return fileManager.fileExists(atPath: fileURL.path)
     }
     
-    func isSessionReady() -> Bool {
-        
+    public func isSessionReady() -> Bool {
         if recordingDirectory.getRecordingDirectoryPath().isEmpty {
             os_log(
                 "Error: recordingDirectoryPath is not set.",
                 log: logger,
                 type: .error
             )
-            
             return false
         }
-        
         return true
     }
     
@@ -59,7 +54,7 @@ final class DefaultURLSessionReplay: URLSessionReplay {
     ///   - request: The URL request to execute.
     /// - Returns: A tuple containing the HTTP URL response and the response data.
     /// - Throws: An error if the operation fails.
-    func performRequestAndRecord(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
+    public func performRequestAndRecord(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
         do {
             // Ensure the recording directory exists.
             try recordingDirectory.createRecordingDirectoryIfNeed()
@@ -132,7 +127,7 @@ final class DefaultURLSessionReplay: URLSessionReplay {
         return try await replayResponse(data: recordedData, url: url)
     }
     
-    func replayRecordFor(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
+    public func replayRecordFor(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
         
         guard let url = request.url else {
             os_log(
@@ -147,7 +142,7 @@ final class DefaultURLSessionReplay: URLSessionReplay {
         return try await replayRecordResponse(fileURL: fileUrl, url: url)
     }
     
-    func getFileUrl(request: URLRequest) -> URL {
+    public func getFileUrl(request: URLRequest) -> URL {
         let fileName = fileNameResolver.resolveFileName(
             for: request,
             testName: recordingDirectory.getRecordingFolderName()
@@ -157,11 +152,11 @@ final class DefaultURLSessionReplay: URLSessionReplay {
         ).appendingPathComponent(fileName)
     }
     
-    func removeRecordingSessionFolder() throws {
+    public func removeRecordingSessionFolder() throws {
         try recordingDirectory.removeRecordingDirectory()
     }
     
-    func setSession(dirrectoryPath: String, sessionFolderName: String) {
+    public func setSession(dirrectoryPath: String, sessionFolderName: String) {
         recordingDirectory.setTestDetails(
             filePath: dirrectoryPath,
             folderName: sessionFolderName

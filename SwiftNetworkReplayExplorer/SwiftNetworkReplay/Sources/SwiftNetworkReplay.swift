@@ -8,7 +8,7 @@
 import Foundation
 import os.log
 
-final class SwiftNetworkReplay: URLProtocol {
+public final class SwiftNetworkReplay: URLProtocol {
     
     private static var isRecording: Bool = false
     static var sessionReplay: URLSessionReplay = DefaultURLSessionReplay()
@@ -17,7 +17,7 @@ final class SwiftNetworkReplay: URLProtocol {
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "Networking"
     )
 
-    override class func canInit(with request: URLRequest) -> Bool {
+    public override class func canInit(with request: URLRequest) -> Bool {
         if request.value(forHTTPHeaderField: "X-SwiftNetworkReplay") != nil {
             return false
         }
@@ -33,7 +33,7 @@ final class SwiftNetworkReplay: URLProtocol {
         return isHttpRequest
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    public override class func canonicalRequest(for request: URLRequest) -> URLRequest {
         os_log(
             "Canonicalizing request: %{public}@",
             log: logger,
@@ -43,7 +43,7 @@ final class SwiftNetworkReplay: URLProtocol {
         return request
     }
     
-    override func startLoading() {
+    public override func startLoading() {
         
         guard let url = request.url else {
             os_log(
@@ -122,7 +122,7 @@ final class SwiftNetworkReplay: URLProtocol {
         }
     }
     
-    override func stopLoading() {
+    public override func stopLoading() {
         os_log(
             "Stopped loading for URL: %{public}@",
             log: Self.logger,

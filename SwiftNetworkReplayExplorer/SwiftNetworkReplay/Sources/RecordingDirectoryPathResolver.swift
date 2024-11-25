@@ -8,7 +8,7 @@
 import os.log
 import Foundation
 
-protocol RecordingDirectoryPathResolver {
+public protocol RecordingDirectoryPathResolver {
     func setTestDetails(filePath: String, folderName: String)
     func getRecordingDirectoryPath() -> String
     func getRecordingFolderName() -> String
@@ -17,7 +17,7 @@ protocol RecordingDirectoryPathResolver {
     func reset()
 }
 
-final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolver {
+public final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolver {
     
     private var recordingDirectoryPath: String = ""
     private var recordingFolderName: String = ""
@@ -28,12 +28,12 @@ final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolve
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "DirectoryPathResolver"
     )
     
-    func reset() {
+    public func reset() {
         recordingDirectoryPath = ""
         recordingFolderName = ""
     }
     
-    func setTestDetails(filePath: String, folderName: String) {
+    public func setTestDetails(filePath: String, folderName: String) {
         recordingFolderName = folderName.replacingOccurrences(of: "()", with: "")
         let fileUrl = URL(fileURLWithPath: filePath, isDirectory: false)
         let testDirectoryUrl = fileUrl.deletingLastPathComponent()
@@ -42,15 +42,15 @@ final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolve
         recordingDirectoryPath = testDirectoryUrl.path
     }
     
-    func getRecordingDirectoryPath() -> String {
+    public func getRecordingDirectoryPath() -> String {
         return recordingDirectoryPath
     }
     
-    func getRecordingFolderName() -> String {
+    public func getRecordingFolderName() -> String {
         return recordingFolderName
     }
     
-    func createRecordingDirectoryIfNeed() throws {
+    public func createRecordingDirectoryIfNeed() throws {
         if !fileManager.fileExists(atPath: getRecordingDirectoryPath()) {
             do {
                 try fileManager.createDirectory(
@@ -69,7 +69,7 @@ final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolve
         }
     }
     
-    func removeRecordingDirectory() throws {
+    public func removeRecordingDirectory() throws {
         if fileManager.fileExists(atPath: getRecordingDirectoryPath()) {
             do {
                 try fileManager.removeItem(atPath: getRecordingDirectoryPath())

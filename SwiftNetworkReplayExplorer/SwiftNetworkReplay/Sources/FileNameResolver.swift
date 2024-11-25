@@ -6,13 +6,14 @@
 //
 
 import CryptoKit
+import Foundation
 
-protocol FileNameResolver {
+public protocol FileNameResolver {
     func resolveFileName(for request: URLRequest, testName: String) -> String
 }
 
 final class DefaultFileNameResolver: FileNameResolver {
-    func resolveFileName(for request: URLRequest, testName: String) -> String {
+    public func resolveFileName(for request: URLRequest, testName: String) -> String {
         
         let url = request.url
         var domain = url?.absoluteString ?? "unknown_domain"
