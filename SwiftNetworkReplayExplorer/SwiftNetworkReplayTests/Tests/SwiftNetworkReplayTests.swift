@@ -13,7 +13,7 @@ struct SwiftNetworkReplayTests {
     @Test
     func testNoRecordWasFound() async throws {
         
-        SwiftNetworkReplay.replay()
+        SwiftNetworkReplay.start()
         try SwiftNetworkReplay.removeRecordingDirectory()
         
         guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts/1") else {
@@ -29,7 +29,7 @@ struct SwiftNetworkReplayTests {
     @Test
     func testAddNewRecordAndReadTheNewCreatedRecord() async throws {
 
-        SwiftNetworkReplay.replay(record: true)
+        SwiftNetworkReplay.start(record: true)
         try SwiftNetworkReplay.removeRecordingDirectory()
         
         guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts/1") else {
@@ -41,7 +41,7 @@ struct SwiftNetworkReplayTests {
         guard let httpResponse2 = response2 as? HTTPURLResponse else { return }
         #expect(httpResponse2.statusCode == 200, "Response status code should be 200")
         
-        SwiftNetworkReplay.replay()
+        SwiftNetworkReplay.start()
         
         // Perform the GET request
         let (_, response3) = try await URLSession.shared.data(for: URLRequest(url: url))
