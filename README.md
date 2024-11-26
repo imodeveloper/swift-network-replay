@@ -1,4 +1,4 @@
-# SwiftNetworkReplay
+# Swift Network Replay
 
 **SwiftNetworkReplay** is a Swift package for recording and replaying network requests. It simplifies debugging and testing of network-dependent features in iOS apps by intercepting HTTP/HTTPS traffic, recording API responses, and replaying them later.
 
