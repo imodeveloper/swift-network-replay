@@ -147,17 +147,17 @@ public final class SwiftNetworkReplay: URLProtocol {
         )
     }
     
-    static func start(dirrectoryPath: String = #file, sessionFolderName: String = #function, record: Bool = false) {
+    public static func start(dirrectoryPath: String = #file, sessionFolderName: String = #function, record: Bool = false) {
         URLProtocol.registerClass(SwiftNetworkReplay.self)
         Self.sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
         Self.isRecording = record
     }
     
-    static func stop() {
+    public static func stop() {
         URLProtocol.unregisterClass(SwiftNetworkReplay.self)
     }
     
-    static func removeRecordingDirectory() throws {
+    public static func removeRecordingDirectory() throws {
         try Self.sessionReplay.removeRecordingSessionFolder()
     }
 }
