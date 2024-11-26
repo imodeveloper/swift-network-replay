@@ -12,6 +12,8 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     private static var isRecording: Bool = false
     static var sessionReplay: URLSessionReplay = DefaultURLSessionReplay()
+    private static var allowedDomains: [String] = []
+
     
     private static let logger = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "Networking"
@@ -22,12 +24,20 @@ public final class SwiftNetworkReplay: URLProtocol {
             return false
         }
         
-        let isHttpRequest = request.url?.scheme == "http" || request.url?.scheme == "https"
+        guard let url = request.url else { return false }
+        let isHttpRequest = url.scheme == "http" || url.scheme == "https"
+        
         if isHttpRequest {
+            if !allowedDomains.isEmpty {
+                // Check if the request's domain is in the allowed list
+                guard let host = url.host, allowedDomains.contains(host) else {
+                    return false
+                }
+            }
             os_log(
                 "Intercepting request: %{public}@",
                 log: logger,
-                type: .info, request.url?.absoluteString ?? "Unknown URL"
+                type: .info, url.absoluteString
             )
         }
         return isHttpRequest
@@ -148,7 +158,7 @@ public final class SwiftNetworkReplay: URLProtocol {
     }
     
     public static func start(dirrectoryPath: String = #file, sessionFolderName: String = #function, record: Bool = false) {
-        URLProtocol.registerClass(SwiftNetworkReplay.self)
+        URLSessionConfiguration.swizzle
         Self.sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
         Self.isRecording = record
     }
@@ -159,5 +169,9 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     public static func removeRecordingDirectory() throws {
         try Self.sessionReplay.removeRecordingSessionFolder()
+    }
+    
+    public static func setAllowedDomains(_ domains: [String]) {
+        Self.allowedDomains = domains
     }
 }

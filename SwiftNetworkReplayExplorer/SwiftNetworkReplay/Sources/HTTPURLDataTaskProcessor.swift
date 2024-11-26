@@ -50,11 +50,13 @@ public final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
         guard let responseObject = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
               let responseDataString = responseObject["responseData"] as? String,
               let responseData = responseDataString.data(using: .utf8),
-              let responseHeaders = responseObject["responseHeaders"] as? [String: String],
+              var responseHeaders = responseObject["responseHeaders"] as? [String: String],
               let statusCode = responseObject["statusCode"] as? Int else {
             let error = NSError(domain: "Failed to decode saved data", code: -100, userInfo: nil)
             throw error
         }
+        
+        responseHeaders["X-SwiftNetworkReplay"] = "true"
         
         return (
             responseDataString: responseDataString,

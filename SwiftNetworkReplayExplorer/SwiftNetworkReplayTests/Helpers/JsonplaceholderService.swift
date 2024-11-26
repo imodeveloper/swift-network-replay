@@ -69,20 +69,32 @@ struct User: Codable {
 }
 
 
+import Foundation
+
+// MARK: - TestableResultStruct
+struct TestableResultStruct<T: Codable>: Codable {
+    let result: T
+    let headers: [String: String]
+    var isSwiftNetworkReplay: Bool {
+        return headers["X-SwiftNetworkReplay"] == "true"
+    }
+}
+
+// MARK: - JsonplaceholderService
 class JsonplaceholderService {
     
     private var baseURL: URL = URL(string: "https://jsonplaceholder.typicode.com")!
     
     init() {}
     
-    /// Executes a network request with the specified parameters and decodes the response.
+    /// Executes a network request with the specified parameters and decodes the response into `TestableResultStruct`.
     private func executeRequest<T: Decodable>(
         url: URL,
         method: String = "GET",
         headers: [String: String]? = nil,
         body: Data? = nil,
         decodingType: T.Type
-    ) async throws -> T {
+    ) async throws -> TestableResultStruct<T> {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.allHTTPHeaderFields = headers
@@ -94,22 +106,30 @@ class JsonplaceholderService {
             throw NSError(domain: "InvalidResponse", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid HTTP response"])
         }
         
-        return try JSONDecoder().decode(T.self, from: data)
+        let decodedResult = try JSONDecoder().decode(T.self, from: data)
+        let responseHeaders = httpResponse.allHeaderFields.reduce(into: [String: String]()) { result, pair in
+            if let key = pair.key as? String, let value = pair.value as? String {
+                result[key] = value
+            }
+        }
+        
+        return TestableResultStruct(result: decodedResult, headers: responseHeaders)
     }
+
     
     // MARK: - API Methods
     
-    func getPosts() async throws -> [Post] {
+    func getPosts() async throws -> TestableResultStruct<[Post]> {
         let url = baseURL.appendingPathComponent("/posts")
         return try await executeRequest(url: url, decodingType: [Post].self)
     }
     
-    func getPost(byId id: Int) async throws -> Post {
+    func getPost(byId id: Int) async throws -> TestableResultStruct<Post> {
         let url = baseURL.appendingPathComponent("/posts/\(id)")
         return try await executeRequest(url: url, decodingType: Post.self)
     }
     
-    func sendPost(title: String, body: String, userId: Int) async throws -> Post {
+    func sendPost(title: String, body: String, userId: Int) async throws -> TestableResultStruct<Post> {
         let url = baseURL.appendingPathComponent("/posts")
         let payload = Post(userId: userId, id: 0, title: title, body: body) // id will be ignored by the server
         let bodyData = try JSONEncoder().encode(payload)
@@ -122,32 +142,32 @@ class JsonplaceholderService {
         )
     }
     
-    func getComments(forPostId postId: Int) async throws -> [Comment] {
+    func getComments(forPostId postId: Int) async throws -> TestableResultStruct<[Comment]> {
         let url = baseURL.appendingPathComponent("/posts/\(postId)/comments")
         return try await executeRequest(url: url, decodingType: [Comment].self)
     }
     
-    func getAllComments() async throws -> [Comment] {
+    func getAllComments() async throws -> TestableResultStruct<[Comment]> {
         let url = baseURL.appendingPathComponent("/comments")
         return try await executeRequest(url: url, decodingType: [Comment].self)
     }
     
-    func getAlbums() async throws -> [Album] {
+    func getAlbums() async throws -> TestableResultStruct<[Album]> {
         let url = baseURL.appendingPathComponent("/albums")
         return try await executeRequest(url: url, decodingType: [Album].self)
     }
     
-    func getPhotos(forAlbumId albumId: Int) async throws -> [Photo] {
+    func getPhotos(forAlbumId albumId: Int) async throws -> TestableResultStruct<[Photo]> {
         let url = baseURL.appendingPathComponent("/albums/\(albumId)/photos")
         return try await executeRequest(url: url, decodingType: [Photo].self)
     }
     
-    func getUsers() async throws -> [User] {
+    func getUsers() async throws -> TestableResultStruct<[User]> {
         let url = baseURL.appendingPathComponent("/users")
         return try await executeRequest(url: url, decodingType: [User].self)
     }
     
-    func getUser(byId id: Int) async throws -> User {
+    func getUser(byId id: Int) async throws -> TestableResultStruct<User> {
         let url = baseURL.appendingPathComponent("/users/\(id)")
         return try await executeRequest(url: url, decodingType: User.self)
     }
