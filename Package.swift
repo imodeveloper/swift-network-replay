@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "SwiftNetworkReplay",
     platforms: [
-        .iOS(.v16) // Specify iOS 16 and higher
+        .iOS(.v14) 
     ],
     products: [
         .library(
