@@ -16,7 +16,7 @@ final class DefaultFileNameResolver: FileNameResolver {
     public func resolveFileName(for request: URLRequest, testName: String) -> String {
         
         let url = request.url
-        var domain = url?.absoluteString ?? "unknown_domain"
+        var domain = url?.host ?? "unknown_domain"
         domain = domain.replacingOccurrences(of: "https:", with: "")
         domain = domain.replacingOccurrences(of: "http:", with: "")
         domain = domain.replacingOccurrences(of: "www", with: "")
@@ -30,9 +30,9 @@ final class DefaultFileNameResolver: FileNameResolver {
             .joined(separator: "&") ?? ""
 
         let bodyString = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let pathHash = sha256Hash(for: "\(testName)\(headersString)\(bodyString)")
+        let pathHash = sha256Hash(for: "\(testName)\(headersString)\(bodyString)\(url?.absoluteString ?? "missing_url")")
 
-        return "\(request.httpMethod ?? "GET")_\(domain)_\(pathHash).json"
+        return "\(request.httpMethod ?? "UNKNOWN")_\(domain)_\(pathHash).json"
     }
 
     private func sha256Hash(for input: String) -> String {

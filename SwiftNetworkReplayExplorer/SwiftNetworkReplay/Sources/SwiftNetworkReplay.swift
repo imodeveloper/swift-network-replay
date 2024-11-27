@@ -12,8 +12,7 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     private static var isRecording: Bool = false
     static var sessionReplay: URLSessionReplay = DefaultURLSessionReplay()
-    private static var allowedDomains: [String] = []
-
+    private static var replayUrlsWithKeyworkds: [String] = []
     
     private static let logger = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "Networking"
@@ -28,9 +27,14 @@ public final class SwiftNetworkReplay: URLProtocol {
         let isHttpRequest = url.scheme == "http" || url.scheme == "https"
         
         if isHttpRequest {
-            if !allowedDomains.isEmpty {
-                // Check if the request's domain is in the allowed list
-                guard let host = url.host, allowedDomains.contains(host) else {
+            if !replayUrlsWithKeyworkds.isEmpty {
+                // Check if the request URL contains any of the specified keywords
+                let urlString = url.absoluteString
+                let containsKeyword = replayUrlsWithKeyworkds.contains { keyword in
+                    urlString.contains(keyword)
+                }
+                
+                if !containsKeyword {
                     return false
                 }
             }
@@ -54,7 +58,6 @@ public final class SwiftNetworkReplay: URLProtocol {
     }
     
     public override func startLoading() {
-        
         guard let url = request.url else {
             os_log(
                 "Failed: Invalid URL in request",
@@ -79,10 +82,13 @@ public final class SwiftNetworkReplay: URLProtocol {
             url.absoluteString
         )
         
-        if Self.sessionReplay.doesRecordingExistsFor(request: request) && !Self.isRecording {
+        var newRequest = request
+        newRequest.setValue("true", forHTTPHeaderField: "X-SwiftNetworkReplay")
+        
+        if Self.sessionReplay.doesRecordingExistsFor(request: newRequest) && !Self.isRecording {
             Task {
                 do {
-                    let result = try await Self.sessionReplay.replayRecordFor(request: request)
+                    let result = try await Self.sessionReplay.replayRecordFor(request: newRequest)
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
                     os_log(
@@ -111,10 +117,10 @@ public final class SwiftNetworkReplay: URLProtocol {
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
                     os_log(
-                        "Recording mode is active. Performing live request for URL: %{public}@",
+                        "Failed Performing live request for URL: %{public}@",
                         log: Self.logger,
                         type: .error,
-                        request.url?.absoluteString ?? "missing url"
+                        error.localizedDescription
                     )
                 }
             }
@@ -157,10 +163,16 @@ public final class SwiftNetworkReplay: URLProtocol {
         )
     }
     
-    public static func start(dirrectoryPath: String = #file, sessionFolderName: String = #function, record: Bool = false) {
-        URLSessionConfiguration.swizzle
+    public static func start(
+        dirrectoryPath: String = #file,
+        sessionFolderName: String = #function,
+        record: Bool = false,
+        replayUrlsWithKeyworkds: [String] = []
+    ) {
+        URLProtocol.registerClass(SwiftNetworkReplay.self)
         Self.sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
         Self.isRecording = record
+        Self.replayUrlsWithKeyworkds = replayUrlsWithKeyworkds
     }
     
     public static func stop() {
@@ -169,9 +181,5 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     public static func removeRecordingDirectory() throws {
         try Self.sessionReplay.removeRecordingSessionFolder()
-    }
-    
-    public static func setAllowedDomains(_ domains: [String]) {
-        Self.allowedDomains = domains
     }
 }

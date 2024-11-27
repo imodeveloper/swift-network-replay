@@ -52,14 +52,12 @@ struct JsonplaceholderServiceTests {
     
     @Test
     func testOnlyAlowedDoemains() async throws {
-        SwiftNetworkReplay.start()
-        SwiftNetworkReplay.setAllowedDomains(["google.com"])
+        SwiftNetworkReplay.start(replayUrlsWithKeyworkds: ["google.com"])
         let user = try await service.getUser(byId: 1)
         #expect(user.result.name == "Leanne Graham", "User's name should match")
         #expect(!user.isSwiftNetworkReplay, "Posts should NOT be SwiftNetworkReplay")
         
-        SwiftNetworkReplay.start()
-        SwiftNetworkReplay.setAllowedDomains(["jsonplaceholder.typicode.com"])
+        SwiftNetworkReplay.start(replayUrlsWithKeyworkds: ["jsonplaceholder.typicode.com"])
         let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
         #expect(newPost.isSwiftNetworkReplay, "Posts should BE SwiftNetworkReplay")
     }

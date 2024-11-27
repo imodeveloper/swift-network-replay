@@ -7,8 +7,8 @@
 
 import Foundation
 
-extension URLSessionConfiguration {
-    static let swizzle: Void = {
+public extension URLSessionConfiguration {
+    static let swizzleSwiftNetworkReplay: Void = {
         let originalSelector = #selector(getter: protocolClasses)
         let swizzledSelector = #selector(getter: swizzled_protocolClasses)
         

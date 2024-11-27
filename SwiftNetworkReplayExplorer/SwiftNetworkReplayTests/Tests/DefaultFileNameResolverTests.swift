@@ -37,7 +37,7 @@ struct DefaultFileNameResolverTests {
 
         #expect(fileName.hasSuffix(".json"), "File name should have a .json suffix")
         #expect(fileName.contains("example.com"), "File name should include the formatted domain name")
-        #expect(fileName.contains("GET_example.com_anotherPath_6223cf28ec7d110a.json"), "Exact name")
+        #expect(fileName.contains("GET_example.com_be3c53cd64c8bfe8.json"), "Exact name")
     }
 
     @Test
@@ -53,7 +53,7 @@ struct DefaultFileNameResolverTests {
         let fileName = resolver.resolveFileName(for: request, testName: testName)
 
         #expect(fileName.contains("example.com"), "File name should include the formatted domain name")
-        #expect(fileName.contains("GET_example.com_sortedHeaders_be25cb756b9e02fa.json"), "Exact name")
+        #expect(fileName.contains("GET_example.com_94101ec1d09e6a70.json"), "Exact name")
     }
 
     @Test

@@ -8,13 +8,13 @@
 import Foundation
 
 public protocol HTTPURLDataTaskProcessor {
-    func encodeDataTaskResult(newRequest: URLRequest, data: Data, httpResponse: HTTPURLResponse) throws -> Data
-    func decodeDataTaskResult(data: Data) throws -> (responseDataString: String, responseData: Data, responseHeaders: [String: String], statusCode: Int)
+    func encodeDataTaskResult(newRequest: URLRequest, responseData: Data, httpResponse: HTTPURLResponse) throws -> Data
+    func decodeDataTaskResult(request: URLRequest, data: Data) throws -> (httpURLResponse: HTTPURLResponse, responseData: Data)
 }
 
 public final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
     
-    public func encodeDataTaskResult(newRequest: URLRequest, data: Data, httpResponse: HTTPURLResponse) throws -> Data {
+    public func encodeDataTaskResult(newRequest: URLRequest, responseData: Data, httpResponse: HTTPURLResponse) throws -> Data {
         
         let filteredResponseHeaders = httpResponse.allHeaderFields.filter { key, _ in
             guard let keyString = key as? String else { return false }
@@ -35,7 +35,7 @@ public final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
             "responseHeaders": filteredResponseHeaders,
             "statusCode": httpResponse.statusCode,
         ]
-        responseObject["responseData"] = String(data: data, encoding: .utf8) ?? ""
+        responseObject["responseData"] = String(data: responseData, encoding: .utf8) ?? ""
         
         let sortedResponseObject = responseObject.sorted { $0.key < $1.key }
         
@@ -45,24 +45,34 @@ public final class DefaultHTTPURLDataTaskProcessor: HTTPURLDataTaskProcessor {
         )
     }
     
-    public func decodeDataTaskResult(data: Data) throws -> (responseDataString: String, responseData: Data, responseHeaders: [String: String], statusCode: Int) {
+    public func decodeDataTaskResult(request: URLRequest, data: Data) throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
+        
+        guard let url = request.url else {
+            throw NSError(domain: "Invalid URL", code: -1, userInfo: nil)
+        }
         
         guard let responseObject = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
               let responseDataString = responseObject["responseData"] as? String,
               let responseData = responseDataString.data(using: .utf8),
               var responseHeaders = responseObject["responseHeaders"] as? [String: String],
               let statusCode = responseObject["statusCode"] as? Int else {
-            let error = NSError(domain: "Failed to decode saved data", code: -100, userInfo: nil)
-            throw error
+            throw NSError(domain: "Failed to decode saved data", code: -1, userInfo: nil)
         }
         
         responseHeaders["X-SwiftNetworkReplay"] = "true"
         
+        guard let response = HTTPURLResponse(
+            url: url,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: responseHeaders
+        ) else {
+            throw NSError(domain: "Failed to create a HTTPURLResponse", code: -1, userInfo: nil)
+        }
+        
         return (
-            responseDataString: responseDataString,
-            responseData: responseData,
-            responseHeaders: responseHeaders,
-            statusCode: statusCode
+            httpURLResponse: response,
+            responseData: responseData
         )
     }
 }

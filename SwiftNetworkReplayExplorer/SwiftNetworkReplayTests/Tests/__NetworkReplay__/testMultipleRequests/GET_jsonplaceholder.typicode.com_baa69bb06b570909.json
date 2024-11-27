@@ -1,0 +1,35 @@
+{
+  "requestBody" : "",
+  "responseData" : "{\n  \"id\": 1,\n  \"name\": \"Leanne Graham\",\n  \"username\": \"Bret\",\n  \"email\": \"Sincere@april.biz\",\n  \"address\": {\n    \"street\": \"Kulas Light\",\n    \"suite\": \"Apt. 556\",\n    \"city\": \"Gwenborough\",\n    \"zipcode\": \"92998-3874\",\n    \"geo\": {\n      \"lat\": \"-37.3159\",\n      \"lng\": \"81.1496\"\n    }\n  },\n  \"phone\": \"1-770-736-8031 x56442\",\n  \"website\": \"hildegard.org\",\n  \"company\": {\n    \"name\": \"Romaguera-Crona\",\n    \"catchPhrase\": \"Multi-layered client-server neural-net\",\n    \"bs\": \"harness real-time e-markets\"\n  }\n}",
+  "requestType" : "GET",
+  "statusCode" : 200,
+  "responseHeaders" : {
+    "Content-Encoding" : "br",
+    "Pragma" : "no-cache",
+    "reporting-endpoints" : "heroku-nel=https:\/\/nel.heroku.com\/reports?ts=1732691410&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&s=xkxyTjX1xuoYrsswdBqNpEQBbw3Ec36u4Oogsq6%2FlIA%3D",
+    "Expires" : "-1",
+    "Content-Type" : "application\/json; charset=utf-8",
+    "x-ratelimit-reset" : "1732691449",
+    "Age" : "18960",
+    "Via" : "1.1 vegur",
+    "x-ratelimit-remaining" : "998",
+    "Alt-Svc" : "h3=\":443\"; ma=86400",
+    "x-ratelimit-limit" : "1000",
+    "nel" : "{\"report_to\":\"heroku-nel\",\"max_age\":3600,\"success_fraction\":0.005,\"failure_fraction\":0.05,\"response_headers\":[\"Via\"]}",
+    "Server" : "cloudflare",
+    "server-timing" : "cfL4;desc=\"?proto=QUIC&rtt=42584&min_rtt=33158&rtt_var=10791&sent=29&recv=18&lost=0&retrans=0&sent_bytes=16635&recv_bytes=5391&delivery_rate=5106&cwnd=12000&unsent_bytes=0&cid=fe81c2899c863cc5&ts=808&x=1\", cfHdrFlush;dur=0",
+    "x-powered-by" : "Express",
+    "report-to" : "{\"group\":\"heroku-nel\",\"max_age\":3600,\"endpoints\":[{\"url\":\"https:\/\/nel.heroku.com\/reports?ts=1732691410&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&s=xkxyTjX1xuoYrsswdBqNpEQBbw3Ec36u4Oogsq6%2FlIA%3D\"}]}",
+    "cf-ray" : "8e921ae47e395b27-VIE",
+    "Vary" : "Origin, Accept-Encoding",
+    "Etag" : "W\/\"1fd-+2Y3G3w049iSZtw5t1mzSnunngE\"",
+    "x-content-type-options" : "nosniff",
+    "Cache-Control" : "max-age=43200",
+    "access-control-allow-credentials" : "true",
+    "cf-cache-status" : "HIT"
+  },
+  "service" : "jsonplaceholder.typicode.com",
+  "requestHeaders" : {
+    "X-SwiftNetworkReplay" : "true"
+  }
+}

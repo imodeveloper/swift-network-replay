@@ -55,6 +55,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     /// - Returns: A tuple containing the HTTP URL response and the response data.
     /// - Throws: An error if the operation fails.
     public func performRequestAndRecord(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
+        
         do {
             // Ensure the recording directory exists.
             try recordingDirectory.createRecordingDirectoryIfNeed()
@@ -67,79 +68,52 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         newRequest.setValue("true", forHTTPHeaderField: "X-SwiftNetworkReplay")
         
         // Execute the request using async/await.
-        let (data, response) = try await session.asyncData(for: newRequest)
+        let (responseData, httpResponse) = try await session.asyncData(for: newRequest)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let httpResponse = httpResponse as? HTTPURLResponse else {
             throw NSError(domain: "Invalid Response", code: -1, userInfo: nil)
         }
         
         // Process and record the response.
         let recordedResponseData = try responseResolver.encodeDataTaskResult(
             newRequest: newRequest,
-            data: data,
+            responseData: responseData,
             httpResponse: httpResponse
         )
         
-        let fileUrl = getFileUrl(request: request)
+        let fileUrl = getFileUrl(request: newRequest)
         try recordedResponseData.write(to: fileUrl, options: .atomic)
         
         os_log(
-            "Successfully recorded response for URL: %{public}@",
+            "Successfully recorded response for URL: %{public}@ to file: %{public}@",
             log: logger,
             type: .info,
-            request.url?.absoluteString ?? "Unknown URL"
+            request.url?.absoluteString ?? "Unknown URL",
+            fileUrl.absoluteString
         )
         
         // Replay the response and return the result.
-        return try await replayResponse(data: recordedResponseData, url: request.url!)
-    }
-    
-    /// Replays the recorded response.
-    /// - Parameters:
-    ///   - data: The recorded response data.
-    ///   - url: The URL for the recorded response.
-    /// - Returns: A tuple containing the HTTP URL response and the response data.
-    /// - Throws: An error if decoding the recorded data fails.
-    func replayResponse(data: Data, url: URL) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
-        guard let result = try? responseResolver.decodeDataTaskResult(data: data) else {
-            os_log(
-                "Failed to parse recorded data for URL: %{public}@",
-                log: logger,
-                type: .error,
-                url.absoluteString
-            )
-            
-            throw NSError(domain: "Invalid Recorded Data", code: -2, userInfo: nil)
-        }
-        
-        let response = HTTPURLResponse(
-            url: url,
-            statusCode: result.statusCode,
-            httpVersion: "HTTP/1.1",
-            headerFields: result.responseHeaders
-        )!
-        
-        return (httpURLResponse: response, responseData: result.responseData)
-    }
-    
-    func replayRecordResponse(fileURL: URL, url: URL) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
-        let recordedData = try Data(contentsOf: fileURL)
-        return try await replayResponse(data: recordedData, url: url)
+        return try await replayRecordFor(request: newRequest)
     }
     
     public func replayRecordFor(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
         
-        guard let url = request.url else {
+        let recordedData = try Data(contentsOf: getFileUrl(request: request))
+        
+        guard let result = try? responseResolver.decodeDataTaskResult(request: request, data: recordedData) else {
             os_log(
-                "Failed: Invalid URL in request",
+                "Failed to parse recorded data for URL: %{public}@",
                 log: logger,
-                type: .error
+                type: .error,
+                request.url?.absoluteString ?? "Missing URL"
             )
-            throw NSError(domain: "Invalid URL", code: -1, userInfo: nil)
+            throw NSError(domain: "Invalid Recorded Data", code: -2, userInfo: nil)
         }
         
-        let fileUrl = getFileUrl(request: request)
-        return try await replayRecordResponse(fileURL: fileUrl, url: url)
+        return (
+            httpURLResponse: result.httpURLResponse,
+            responseData: result.responseData
+        )
     }
     
     public func getFileUrl(request: URLRequest) -> URL {
