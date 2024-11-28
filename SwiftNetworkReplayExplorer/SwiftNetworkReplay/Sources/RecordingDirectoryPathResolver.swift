@@ -8,60 +8,62 @@
 import os.log
 import Foundation
 
-public protocol RecordingDirectoryPathResolver {
-    func setTestDetails(filePath: String, folderName: String)
-    func getRecordingDirectoryPath() -> String
-    func getRecordingFolderName() -> String
-    func removeRecordingDirectory() throws
-    func createRecordingDirectoryIfNeed() throws
+public protocol DirectoryManager {
+    func configure(directoryPath: String, folderName: String)
+    var directoryPath: String { get }
+    var folderName: String { get }
+    func createDirectoryIfNeeded() throws
+    func removeDirectory() throws
     func reset()
 }
 
-public final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPathResolver {
+public final class DefaultDirectoryManager: DirectoryManager {
     
-    private var recordingDirectoryPath: String = ""
-    private var recordingFolderName: String = ""
+    private var _directoryPath: String = ""
+    private var _folderName: String = ""
     
     var fileManager: FileManagerProtocol = DefaultFileManager()
     
     private let logger = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "DirectoryPathResolver"
+        subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay",
+        category: "DirectoryManager"
     )
     
     public func reset() {
-        recordingDirectoryPath = ""
-        recordingFolderName = ""
+        _directoryPath = ""
+        _folderName = ""
     }
     
-    public func setTestDetails(filePath: String, folderName: String) {
-        recordingFolderName = folderName.replacingOccurrences(of: "()", with: "")
-        let fileUrl = URL(fileURLWithPath: filePath, isDirectory: false)
-        let testDirectoryUrl = fileUrl.deletingLastPathComponent()
+    public func configure(directoryPath: String, folderName: String) {
+        _folderName = folderName.replacingOccurrences(of: "()", with: "")
+        let directoryUrl = URL(fileURLWithPath: directoryPath, isDirectory: false)
+        let finalDirectoryUrl = directoryUrl.deletingLastPathComponent()
             .appendingPathComponent("__NetworkReplay__")
-            .appendingPathComponent(recordingFolderName)
-        recordingDirectoryPath = testDirectoryUrl.path
+            .appendingPathComponent(_folderName)
+        _directoryPath = finalDirectoryUrl.path
     }
     
-    public func getRecordingDirectoryPath() -> String {
-        return recordingDirectoryPath
+    public var directoryPath: String {
+        return _directoryPath
     }
     
-    public func getRecordingFolderName() -> String {
-        return recordingFolderName
+    public var folderName: String {
+        return _folderName
     }
     
-    public func createRecordingDirectoryIfNeed() throws {
-        if !fileManager.fileExists(atPath: getRecordingDirectoryPath()) {
+    public func createDirectoryIfNeeded() throws {
+        if !fileManager.fileExists(atPath: directoryPath) {
             do {
                 try fileManager.createDirectory(
-                    atPath: getRecordingDirectoryPath(),
+                    atPath: directoryPath,
                     attributes: nil
                 )
             } catch {
                 os_log(
                     "Failed to create directory at path: %{public}@. Error: %{public}@",
                     log: logger,
-                    type: .error, getRecordingDirectoryPath(),
+                    type: .error,
+                    directoryPath,
                     error.localizedDescription
                 )
                 throw NSError(domain: "Directory Creation Failed", code: -1, userInfo: nil)
@@ -69,32 +71,32 @@ public final class DefaultRecordingDirectoryPathResolver: RecordingDirectoryPath
         }
     }
     
-    public func removeRecordingDirectory() throws {
-        if fileManager.fileExists(atPath: getRecordingDirectoryPath()) {
+    public func removeDirectory() throws {
+        if fileManager.fileExists(atPath: directoryPath) {
             do {
-                try fileManager.removeItem(atPath: getRecordingDirectoryPath())
+                try fileManager.removeItem(atPath: directoryPath)
                 os_log(
-                    "Successfully removed recording directory at path: %{public}@",
+                    "Successfully removed directory at path: %{public}@",
                     log: logger,
                     type: .info,
-                    getRecordingDirectoryPath()
+                    directoryPath
                 )
             } catch {
                 os_log(
-                    "Failed to remove recording directory at path: %{public}@. Error: %{public}@",
+                    "Failed to remove directory at path: %{public}@. Error: %{public}@",
                     log: logger,
                     type: .error,
-                    getRecordingDirectoryPath(),
+                    directoryPath,
                     error.localizedDescription
                 )
                 throw error
             }
         } else {
             os_log(
-                "No recording directory exists at path: %{public}@",
+                "No directory exists at path: %{public}@",
                 log: logger,
                 type: .info,
-                getRecordingDirectoryPath()
+                directoryPath
             )
         }
     }

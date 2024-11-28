@@ -22,9 +22,9 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     
     private var session: URLSession = .shared
     
-    var responseResolver: HTTPURLDataTaskProcessor = DefaultHTTPURLDataTaskProcessor()
+    var dataTaskSerializer: HTTPDataTaskSerializer = DefaultHTTPDataTaskSerializer()
     var fileManager: FileManagerProtocol = DefaultFileManager()
-    var recordingDirectory: RecordingDirectoryPathResolver = DefaultRecordingDirectoryPathResolver()
+    var recordingDirectoryManager: DirectoryManager = DefaultDirectoryManager()
     var fileNameResolver: FileNameResolver = DefaultFileNameResolver()
     
     private let logger = OSLog(
@@ -37,7 +37,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     }
     
     public func isSessionReady() -> Bool {
-        if recordingDirectory.getRecordingDirectoryPath().isEmpty {
+        if recordingDirectoryManager.directoryPath.isEmpty {
             os_log(
                 "Error: recordingDirectoryPath is not set.",
                 log: logger,
@@ -58,7 +58,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         
         do {
             // Ensure the recording directory exists.
-            try recordingDirectory.createRecordingDirectoryIfNeed()
+            try recordingDirectoryManager.createDirectoryIfNeeded()
         } catch {
             throw error
         }
@@ -75,8 +75,8 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         }
         
         // Process and record the response.
-        let recordedResponseData = try responseResolver.encodeDataTaskResult(
-            newRequest: newRequest,
+        let recordedResponseData = try dataTaskSerializer.encode(
+            request: newRequest,
             responseData: responseData,
             httpResponse: httpResponse
         )
@@ -100,7 +100,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         
         let recordedData = try Data(contentsOf: getFileUrl(request: request))
         
-        guard let result = try? responseResolver.decodeDataTaskResult(request: request, data: recordedData) else {
+        guard let result = try? dataTaskSerializer.decode(request: request, data: recordedData) else {
             os_log(
                 "Failed to parse recorded data for URL: %{public}@",
                 log: logger,
@@ -119,20 +119,20 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     public func getFileUrl(request: URLRequest) -> URL {
         let fileName = fileNameResolver.resolveFileName(
             for: request,
-            testName: recordingDirectory.getRecordingFolderName()
+            testName: recordingDirectoryManager.folderName
         )
         return URL(
-            fileURLWithPath: recordingDirectory.getRecordingDirectoryPath()
+            fileURLWithPath: recordingDirectoryManager.directoryPath
         ).appendingPathComponent(fileName)
     }
     
     public func removeRecordingSessionFolder() throws {
-        try recordingDirectory.removeRecordingDirectory()
+        try recordingDirectoryManager.removeDirectory()
     }
     
     public func setSession(dirrectoryPath: String, sessionFolderName: String) {
-        recordingDirectory.setTestDetails(
-            filePath: dirrectoryPath,
+        recordingDirectoryManager.configure(
+            directoryPath: dirrectoryPath,
             folderName: sessionFolderName
         )
     }
