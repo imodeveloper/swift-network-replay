@@ -25,7 +25,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     var dataTaskSerializer: HTTPDataTaskSerializer = DefaultHTTPDataTaskSerializer()
     var fileManager: FileManagerProtocol = DefaultFileManager()
     var recordingDirectoryManager: DirectoryManager = DefaultDirectoryManager()
-    var fileNameResolver: FileNameResolver = DefaultFileNameResolver()
+    var fileNameResolver: RequestFileNameGenerator = DefaultRequestFileNameGenerator()
     
     private let logger = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "SessionReplay"
@@ -117,9 +117,9 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     }
     
     public func getFileUrl(request: URLRequest) -> URL {
-        let fileName = fileNameResolver.resolveFileName(
+        let fileName = fileNameResolver.generateFileName(
             for: request,
-            testName: recordingDirectoryManager.folderName
+            aiditionalName: recordingDirectoryManager.folderName
         )
         return URL(
             fileURLWithPath: recordingDirectoryManager.directoryPath
