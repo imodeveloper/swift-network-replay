@@ -12,7 +12,7 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     private static var isRecording: Bool = false
     static var sessionReplay: URLSessionReplay = DefaultURLSessionReplay()
-    private static var replayUrlsWithKeyworkds: [String] = []
+    private static var replayUrlsWithKeywords: [String] = []
     
     private static let logger = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "Networking"
@@ -27,10 +27,10 @@ public final class SwiftNetworkReplay: URLProtocol {
         let isHttpRequest = url.scheme == "http" || url.scheme == "https"
         
         if isHttpRequest {
-            if !replayUrlsWithKeyworkds.isEmpty {
+            if !replayUrlsWithKeywords.isEmpty {
                 // Check if the request URL contains any of the specified keywords
                 let urlString = url.absoluteString
-                let containsKeyword = replayUrlsWithKeyworkds.contains { keyword in
+                let containsKeyword = replayUrlsWithKeywords.contains { keyword in
                     urlString.contains(keyword)
                 }
                 
@@ -167,12 +167,12 @@ public final class SwiftNetworkReplay: URLProtocol {
         dirrectoryPath: String = #file,
         sessionFolderName: String = #function,
         record: Bool = false,
-        replayUrlsWithKeyworkds: [String] = []
+        replayUrlsWithKeywords: [String] = []
     ) {
         URLProtocol.registerClass(SwiftNetworkReplay.self)
         Self.sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
         Self.isRecording = record
-        Self.replayUrlsWithKeyworkds = replayUrlsWithKeyworkds
+        Self.replayUrlsWithKeywords = replayUrlsWithKeywords
     }
     
     public static func stop() {

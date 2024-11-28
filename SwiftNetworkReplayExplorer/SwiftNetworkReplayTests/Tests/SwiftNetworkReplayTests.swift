@@ -10,44 +10,83 @@ import Testing
 
 struct SwiftNetworkReplayTests {
     
+    let service = JsonplaceholderService()
+    
     @Test
-    func testNoRecordWasFound() async throws {
-        
+    func handleNoRecordFound() async throws {
         SwiftNetworkReplay.start()
         try SwiftNetworkReplay.removeRecordingDirectory()
-        
-        guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts/1") else {
-            fatalError()
-        }
-        do {
-            let (_, _) = try await URLSession.shared.data(for: URLRequest(url: url))
-        } catch {
-            #expect(error.localizedDescription == "The operation couldn’t be completed. (No record was found error -2.)")
+        await #expect(throws: Error.self) {
+            let _ = try await service.getPosts()
         }
     }
     
     @Test
-    func testAddNewRecordAndReadTheNewCreatedRecord() async throws {
-
+    func addAndReadNewRecord() async throws {
         SwiftNetworkReplay.start(record: true)
         try SwiftNetworkReplay.removeRecordingDirectory()
         
-        guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts/1") else {
-            fatalError()
-        }
-        
         // Perform the GET request
-        let (_, response2) = try await URLSession.shared.data(for: URLRequest(url: url))
-        guard let httpResponse2 = response2 as? HTTPURLResponse else { return }
-        #expect(httpResponse2.statusCode == 200, "Response status code should be 200")
+        var post = try await service.getPost(byId: 1)
+        #expect(post.result.id == 1)
         
         SwiftNetworkReplay.start()
         
-        // Perform the GET request
-        let (_, response3) = try await URLSession.shared.data(for: URLRequest(url: url))
-        guard let httpResponse3 = response3 as? HTTPURLResponse else { return }
-        #expect(httpResponse3.statusCode == 200, "Response status code should be 200")
+        post = try await service.getPost(byId: 1)
+        #expect(post.result.id == 1)
+        #expect(post.isSwiftNetworkReplay)
         
         try SwiftNetworkReplay.removeRecordingDirectory()
+    }
+    
+    @Test
+    func retrievePostsSuccessfully() async throws {
+        SwiftNetworkReplay.start()
+        let posts = try await service.getPosts()
+        print(posts.headers)
+        #expect(!posts.result.isEmpty)
+        #expect(posts.isSwiftNetworkReplay)
+    }
+    
+    @Test
+    func sendPostSuccessfully() async throws {
+        SwiftNetworkReplay.start()
+        let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
+        #expect(newPost.result.id != 0)
+        #expect(newPost.isSwiftNetworkReplay)
+    }
+    
+    @Test
+    func retrieveUserSuccessfully() async throws {
+        SwiftNetworkReplay.start()
+        let user = try await service.getUser(byId: 1)
+        #expect(user.result.name == "Leanne Graham")
+        #expect(user.isSwiftNetworkReplay)
+    }
+    
+    @Test
+    func handleMultipleRequests() async throws {
+        SwiftNetworkReplay.start()
+        let posts = try await service.getPosts()
+        let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
+        let user = try await service.getUser(byId: 1)
+        #expect(!posts.result.isEmpty)
+        #expect(newPost.result.id != 0)
+        #expect(user.result.name == "Leanne Graham")
+        #expect(posts.isSwiftNetworkReplay)
+        #expect(newPost.isSwiftNetworkReplay)
+        #expect(user.isSwiftNetworkReplay)
+    }
+    
+    @Test
+    func restrictToAllowedDomains() async throws {
+        SwiftNetworkReplay.start(replayUrlsWithKeywords: ["google.com"])
+        let user = try await service.getUser(byId: 1)
+        #expect(user.result.name == "Leanne Graham")
+        #expect(!user.isSwiftNetworkReplay)
+        
+        SwiftNetworkReplay.start(replayUrlsWithKeywords: ["jsonplaceholder.typicode.com"])
+        let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
+        #expect(newPost.isSwiftNetworkReplay)
     }
 }
