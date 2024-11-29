@@ -20,8 +20,8 @@ public extension URLSessionConfiguration {
     
     @objc var swizzled_protocolClasses: [AnyClass]? {
         var protocols = self.swizzled_protocolClasses ?? []
-        if !protocols.contains(where: { $0 == SwiftNetworkReplay.self }) {
-            protocols.insert(SwiftNetworkReplay.self, at: 0)
+        if !protocols.contains(where: { $0 == SwiftNetworkReplayProtocol.self }) {
+            protocols.insert(SwiftNetworkReplayProtocol.self, at: 0)
         }
         return protocols
     }

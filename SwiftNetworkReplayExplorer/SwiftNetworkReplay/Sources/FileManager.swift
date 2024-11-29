@@ -1,5 +1,5 @@
 //
-//  FileManager.swift
+//  FileManagerProtocol.swift
 //  SwiftNetworkReplay
 //
 //  Created by Ivan Borinschi on 22.11.2024.
