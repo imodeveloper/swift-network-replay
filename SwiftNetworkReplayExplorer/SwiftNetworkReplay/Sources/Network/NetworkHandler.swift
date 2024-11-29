@@ -1,5 +1,5 @@
 //
-//  SwiftNetworkReplayProtocol.swift
+//  StrategyHandler.swift
 //  RSSParserTests
 //
 //  Created by Ivan Borinschi on 21.11.2024.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum SwiftNetworkReplayProtocolError: Error {
+public enum NetworkHandlerError: Error {
     
     case missingStrategy
     
@@ -19,9 +19,9 @@ public enum SwiftNetworkReplayProtocolError: Error {
     }
 }
 
-public final class SwiftNetworkReplayProtocol: URLProtocol {
+public final class NetworkHandler: URLProtocol {
     
-    static var currentStrategy: SwiftNetworkStrategy?
+    static var currentStrategy: NetworkHandlerStrategy?
 
     // MARK: - URLProtocol Overrides
 
@@ -40,7 +40,7 @@ public final class SwiftNetworkReplayProtocol: URLProtocol {
     public override func startLoading() {
         guard let currentStrategy = Self.currentStrategy else {
             client?.urlProtocol(self, didFailWithError: FrameworkLogger.logAndReturn(
-                error: SwiftNetworkReplayProtocolError.missingStrategy
+                error: NetworkHandlerError.missingStrategy
             ))
             return
         }

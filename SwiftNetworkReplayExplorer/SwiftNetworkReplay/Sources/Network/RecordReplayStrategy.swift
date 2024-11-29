@@ -32,7 +32,7 @@ public enum RecordReplayStrategyError: Error {
     }
 }
 
-public final class RecordReplayStrategy: SwiftNetworkStrategy {
+public final class RecordReplayStrategy: NetworkHandlerStrategy {
     
     // MARK: - Start/Stop Replay
 
@@ -42,7 +42,7 @@ public final class RecordReplayStrategy: SwiftNetworkStrategy {
         isRecordingEnabled: Bool = false,
         urlKeywordsForReplay: [String] = []
     ) -> RecordReplayStrategy {
-        URLProtocol.registerClass(SwiftNetworkReplayProtocol.self)
+        URLProtocol.registerClass(NetworkHandler.self)
         let sessionReplay = DefaultURLSessionReplay()
         sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
         let strategy = RecordReplayStrategy(
@@ -50,12 +50,12 @@ public final class RecordReplayStrategy: SwiftNetworkStrategy {
             isRecordingEnabled: isRecordingEnabled,
             urlKeywordsForReplay: urlKeywordsForReplay
         )
-        SwiftNetworkReplayProtocol.currentStrategy = strategy
+        NetworkHandler.currentStrategy = strategy
         return strategy
     }
     
     public static func stop() {
-        URLProtocol.unregisterClass(SwiftNetworkReplayProtocol.self)
+        URLProtocol.unregisterClass(NetworkHandler.self)
     }
     
     private var sessionReplay: URLSessionReplay
@@ -95,7 +95,7 @@ public final class RecordReplayStrategy: SwiftNetworkStrategy {
         }
         
         guard sessionReplay.isSessionReady() else {
-            throw SwiftNetworkStrategyError.sessionReplayNotConfigured(request)
+            throw RecordReplayStrategyError.sessionReplayNotConfigured(request)
         }
         
         FrameworkLogger.log("Start loading for URL", info: ["URL": url.absoluteString])
