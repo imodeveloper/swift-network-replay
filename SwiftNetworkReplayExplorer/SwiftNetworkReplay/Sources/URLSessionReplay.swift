@@ -17,6 +17,29 @@ public protocol URLSessionReplay {
     func removeRecordingSessionFolder() throws
 }
 
+public enum URLSessionReplayError: Error {
+    case invalidResponse(URLRequest)
+    case invalidRecordedData(URLRequest)
+    case unknownError
+    case directoryCreationFailed(Error)
+    case directoryRemovalFailed(Error)
+    
+    var localizedDescription: String {
+        switch self {
+        case .invalidResponse(let request):
+            return "Invalid response for request: \(request.debugDescription)"
+        case .invalidRecordedData(let request):
+            return "Invalid recorded data for request: \(request.debugDescription)"
+        case .unknownError:
+            return "An unknown error occurred."
+        case .directoryCreationFailed(let error):
+            return "Failed to create directory. Error: \(error.localizedDescription)"
+        case .directoryRemovalFailed(let error):
+            return "Failed to remove directory. Error: \(error.localizedDescription)"
+        }
+    }
+}
+
 public final class DefaultURLSessionReplay: URLSessionReplay {
     
     private var session: URLSession = .shared
@@ -43,7 +66,9 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         do {
             try recordingDirectoryManager.createDirectoryIfNeeded()
         } catch {
-            throw error
+            throw FrameworkLogger.logAndReturn(
+                error: URLSessionReplayError.directoryCreationFailed(error)
+            )
         }
 
         var newRequest = request
@@ -52,7 +77,9 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         let (responseData, httpResponse) = try await session.asyncData(for: newRequest)
 
         guard let httpResponse = httpResponse as? HTTPURLResponse else {
-            throw NSError(domain: "Invalid Response", code: -1, userInfo: nil)
+            throw FrameworkLogger.logAndReturn(
+                error: URLSessionReplayError.invalidResponse(newRequest)
+            )
         }
         
         let recordedResponseData = try dataTaskSerializer.encode(
@@ -81,7 +108,9 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
                 type: .error,
                 info: ["URL": request.url?.absoluteString ?? "Missing URL"]
             )
-            throw NSError(domain: "Invalid Recorded Data", code: -2, userInfo: nil)
+            throw FrameworkLogger.logAndReturn(
+                error: URLSessionReplayError.invalidRecordedData(request)
+            )
         }
         
         return (
@@ -101,7 +130,13 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     }
     
     public func removeRecordingSessionFolder() throws {
-        try recordingDirectoryManager.removeDirectory()
+        do {
+            try recordingDirectoryManager.removeDirectoryIfExists()
+        } catch {
+            throw FrameworkLogger.logAndReturn(
+                error: URLSessionReplayError.directoryRemovalFailed(error)
+            )
+        }
     }
     
     public func setSession(dirrectoryPath: String, sessionFolderName: String) {
@@ -123,7 +158,11 @@ extension URLSession {
                 } else if let data = data, let response = response {
                     continuation.resume(returning: (data, response))
                 } else {
-                    continuation.resume(throwing: NSError(domain: "Unknown Error", code: -1, userInfo: nil))
+                    continuation.resume(
+                        throwing: FrameworkLogger.logAndReturn(
+                            error: URLSessionReplayError.unknownError
+                        )
+                    )
                 }
             }
             task.resume()

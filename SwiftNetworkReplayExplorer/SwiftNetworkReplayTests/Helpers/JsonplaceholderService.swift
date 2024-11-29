@@ -71,6 +71,21 @@ struct User: Codable {
 
 import Foundation
 
+// MARK: - JsonplaceholderServiceError
+enum JsonplaceholderServiceError: Error {
+    case invalidHTTPResponse(URL, Int?)
+    case failedToDecode(URL, String)
+    
+    var localizedDescription: String {
+        switch self {
+        case .invalidHTTPResponse(let url, let statusCode):
+            return "Invalid HTTP response for URL: \(url.absoluteString). Status code: \(statusCode ?? -1)"
+        case .failedToDecode(let url, let description):
+            return "Failed to decode response from URL: \(url.absoluteString). Error: \(description)"
+        }
+    }
+}
+
 // MARK: - TestableResultStruct
 struct TestableResultStruct<T: Codable>: Codable {
     let result: T
@@ -102,20 +117,26 @@ class JsonplaceholderService {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
-            throw NSError(domain: "InvalidResponse", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid HTTP response"])
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw JsonplaceholderServiceError.invalidHTTPResponse(url, nil)
         }
         
-        let decodedResult = try JSONDecoder().decode(T.self, from: data)
-        let responseHeaders = httpResponse.allHeaderFields.reduce(into: [String: String]()) { result, pair in
-            if let key = pair.key as? String, let value = pair.value as? String {
-                result[key] = value
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw JsonplaceholderServiceError.invalidHTTPResponse(url, httpResponse.statusCode)
+        }
+        
+        do {
+            let decodedResult = try JSONDecoder().decode(T.self, from: data)
+            let responseHeaders = httpResponse.allHeaderFields.reduce(into: [String: String]()) { result, pair in
+                if let key = pair.key as? String, let value = pair.value as? String {
+                    result[key] = value
+                }
             }
+            return TestableResultStruct(result: decodedResult, headers: responseHeaders)
+        } catch {
+            throw JsonplaceholderServiceError.failedToDecode(url, error.localizedDescription)
         }
-        
-        return TestableResultStruct(result: decodedResult, headers: responseHeaders)
     }
-
     
     // MARK: - API Methods
     
@@ -172,3 +193,4 @@ class JsonplaceholderService {
         return try await executeRequest(url: url, decodingType: User.self)
     }
 }
+

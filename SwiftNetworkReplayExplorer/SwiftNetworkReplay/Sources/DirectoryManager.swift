@@ -7,13 +7,29 @@
 
 import Foundation
 
+public enum DirectoryManagerError: Error {
+    case directoryCreationFailed(String, Error?)
+    case directoryRemovalFailed(String, Error?)
+    
+    var localizedDescription: String {
+        switch self {
+        case .directoryCreationFailed(let path, let underlyingError):
+            return "Failed to create directory at path: \(path)".addUnderliyngError(underlyingError)
+        case .directoryRemovalFailed(let path, let underlyingError):
+            return "Failed to remove directory at path: \(path)".addUnderliyngError(underlyingError)
+        }
+    }
+}
+
 public protocol DirectoryManager {
+    
     func configure(directoryPath: String, folderName: String)
+    func createDirectoryIfNeeded() throws
+    func removeDirectoryIfExists() throws
+    func reset()
+    
     var directoryPath: String { get }
     var folderName: String { get }
-    func createDirectoryIfNeeded() throws
-    func removeDirectory() throws
-    func reset()
 }
 
 public final class DefaultDirectoryManager: DirectoryManager {
@@ -57,17 +73,14 @@ public final class DefaultDirectoryManager: DirectoryManager {
                     info: ["Path": directoryPath]
                 )
             } catch {
-                FrameworkLogger.log(
-                    "Failed to create directory",
-                    type: .error,
-                    info: ["Path": directoryPath, "Error": error.localizedDescription]
+                throw FrameworkLogger.logAndReturn(
+                    error: DirectoryManagerError.directoryCreationFailed(directoryPath, error)
                 )
-                throw NSError(domain: "Directory Creation Failed", code: -1, userInfo: nil)
             }
         }
     }
     
-    public func removeDirectory() throws {
+    public func removeDirectoryIfExists() throws {
         if fileManager.fileExists(atPath: directoryPath) {
             do {
                 try fileManager.removeItem(atPath: directoryPath)
@@ -76,12 +89,9 @@ public final class DefaultDirectoryManager: DirectoryManager {
                     info: ["Path": directoryPath]
                 )
             } catch {
-                FrameworkLogger.log(
-                    "Failed to remove directory",
-                    type: .error,
-                    info: ["Path": directoryPath, "Error": error.localizedDescription]
+                throw FrameworkLogger.logAndReturn(
+                    error: DirectoryManagerError.directoryRemovalFailed(directoryPath, error)
                 )
-                throw error
             }
         } else {
             FrameworkLogger.log(

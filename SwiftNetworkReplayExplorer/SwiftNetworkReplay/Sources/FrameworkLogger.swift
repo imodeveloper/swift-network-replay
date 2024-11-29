@@ -31,4 +31,9 @@ public struct FrameworkLogger {
         }
         os_log("%{public}@", log: activeLogger, type: type, formattedMessage)
     }
+    
+    public static func logAndReturn(error: Error) -> Error {
+        Self.log(error.localizedDescription, type: .error)
+        return error
+    }
 }

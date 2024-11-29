@@ -7,6 +7,29 @@
 
 import Foundation
 
+public enum SwiftNetworkReplayError: Error {
+    case invalidUrlInRequest(URLRequest)
+    case sessionReplayNotConfigured(URLRequest)
+    case noRecordFoundForRequest(URLRequest, URL)
+    case failedToReplay(URL, Error)
+    case failedToPerformLiveRequest(URL, Error)
+    
+    var localizedDescription: String {
+        switch self {
+        case .invalidUrlInRequest(let request):
+            return "Invalid URL in the request. Request: \(request.debugDescription)"
+        case .sessionReplayNotConfigured:
+            return "Session replay is not configured."
+        case .noRecordFoundForRequest(let request, let fileUrl):
+            return "No record was found for the request. Request: \(request.debugDescription), Recording File URL: \(fileUrl.absoluteString)"
+        case .failedToReplay(let url, let error):
+            return "Failed to replay the URL: \(url.absoluteString). Error: \(error.localizedDescription)"
+        case .failedToPerformLiveRequest(let url, let error):
+            return "Failed to perform live request for URL: \(url.absoluteString). Error: \(error.localizedDescription)"
+        }
+    }
+}
+
 public final class SwiftNetworkReplay: URLProtocol {
     
     private static var isRecordingEnabled: Bool = false
@@ -16,17 +39,14 @@ public final class SwiftNetworkReplay: URLProtocol {
     // MARK: - URLProtocol Overrides
 
     public override class func canInit(with request: URLRequest) -> Bool {
-        // Check if the request contains the replay-specific header
         if hasReplayHeader(in: request) {
             return false
         }
         
-        // Validate the URL and its scheme
         guard let url = request.url, isHttpRequest(url: url) else {
             return false
         }
         
-        // If keywords are provided, ensure the URL matches one of them
         if !urlKeywordsForReplay.isEmpty && !containsReplayKeyword(in: url) {
             return false
         }
@@ -42,15 +62,22 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     public override func startLoading() {
         guard let url = request.url else {
-            FrameworkLogger.log("Failed: Invalid URL in request", type: .error)
-            let error = NSError(domain: "Invalid URL", code: -1, userInfo: nil)
-            client?.urlProtocol(self, didFailWithError: error)
+            client?.urlProtocol(
+                self,
+                didFailWithError: FrameworkLogger.logAndReturn(
+                    error: SwiftNetworkReplayError.invalidUrlInRequest(request)
+                )
+            )
             return
         }
         
         guard Self.sessionReplay.isSessionReady() else {
-            let error = NSError(domain: "Session replay is not configured", code: -1, userInfo: nil)
-            client?.urlProtocol(self, didFailWithError: error)
+            client?.urlProtocol(
+                self,
+                didFailWithError: FrameworkLogger.logAndReturn(
+                    error: SwiftNetworkReplayError.sessionReplayNotConfigured(request)
+                )
+            )
             return
         }
         
@@ -65,12 +92,12 @@ public final class SwiftNetworkReplay: URLProtocol {
                     let result = try await Self.sessionReplay.replayRecordFor(request: newRequest)
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
-                    FrameworkLogger.log(
-                        "Failed to replay URL",
-                        type: .error,
-                        info: ["URL": url.absoluteString, "Error": error.localizedDescription]
+                    client?.urlProtocol(
+                        self,
+                        didFailWithError: FrameworkLogger.logAndReturn(
+                            error: SwiftNetworkReplayError.failedToReplay(url, error)
+                        )
                     )
-                    client?.urlProtocol(self, didFailWithError: error)
                 }
             }
         } else if Self.isRecordingEnabled {
@@ -84,24 +111,21 @@ public final class SwiftNetworkReplay: URLProtocol {
                     let result = try await Self.sessionReplay.performRequestAndRecord(request: request)
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
-                    FrameworkLogger.log(
-                        "Failed performing live request",
-                        type: .error,
-                        info: ["URL": request.url?.absoluteString ?? "Unknown URL", "Error": error.localizedDescription]
+                    client?.urlProtocol(
+                        self,
+                        didFailWithError: FrameworkLogger.logAndReturn(
+                            error: SwiftNetworkReplayError.failedToPerformLiveRequest(url, error)
+                        )
                     )
                 }
             }
         } else {
-            FrameworkLogger.log(
-                "No record was found for request",
-                type: .error,
-                info: [
-                    "Request URL": url.absoluteString,
-                    "Recording File URL": Self.sessionReplay.getFileUrl(request: request).absoluteString
-                ]
+            client?.urlProtocol(
+                self,
+                didFailWithError: FrameworkLogger.logAndReturn(
+                    error: SwiftNetworkReplayError.noRecordFoundForRequest(request, Self.sessionReplay.getFileUrl(request: request))
+                )
             )
-            let error = NSError(domain: "No record was found", code: -2, userInfo: nil)
-            client?.urlProtocol(self, didFailWithError: error)
         }
     }
     
@@ -118,7 +142,7 @@ public final class SwiftNetworkReplay: URLProtocol {
         url: URL,
         httpURLResponse: HTTPURLResponse,
         responseData: Data
-    )  {
+    ) {
         client?.urlProtocol(self, didReceive: httpURLResponse, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: responseData)
         client?.urlProtocolDidFinishLoading(self)
