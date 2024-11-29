@@ -14,8 +14,8 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func handleNoRecordFound() async throws {
-        SwiftNetworkReplayProtocol.start()
-        try SwiftNetworkReplayProtocol.removeRecordingDirectory()
+        let strategy = RecordReplayStrategy.start()
+        try strategy.removeRecordingSessionFolder()
         await #expect(throws: Error.self) {
             let _ = try await service.getPosts()
         }
@@ -23,25 +23,26 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func addAndReadNewRecord() async throws {
-        SwiftNetworkReplayProtocol.start(isRecordingEnabled: true)
-        try SwiftNetworkReplayProtocol.removeRecordingDirectory()
+
+        var strategy = RecordReplayStrategy.start(isRecordingEnabled: true)
+        try strategy.removeRecordingSessionFolder()
         
         // Perform the GET request
         var post = try await service.getPost(byId: 1)
         #expect(post.result.id == 1)
         
-        SwiftNetworkReplayProtocol.start()
+        strategy = RecordReplayStrategy.start()
         
         post = try await service.getPost(byId: 1)
         #expect(post.result.id == 1)
         #expect(post.isSwiftNetworkReplay)
         
-        try SwiftNetworkReplayProtocol.removeRecordingDirectory()
+        try strategy.removeRecordingSessionFolder()
     }
     
     @Test
     func retrievePostsSuccessfully() async throws {
-        SwiftNetworkReplayProtocol.start()
+        RecordReplayStrategy.start()
         let posts = try await service.getPosts()
         print(posts.headers)
         #expect(!posts.result.isEmpty)
@@ -50,7 +51,7 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func sendPostSuccessfully() async throws {
-        SwiftNetworkReplayProtocol.start()
+        RecordReplayStrategy.start()
         let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
         #expect(newPost.result.id != 0)
         #expect(newPost.isSwiftNetworkReplay)
@@ -58,7 +59,7 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func retrieveUserSuccessfully() async throws {
-        SwiftNetworkReplayProtocol.start()
+        RecordReplayStrategy.start()
         let user = try await service.getUser(byId: 1)
         #expect(user.result.name == "Leanne Graham")
         #expect(user.isSwiftNetworkReplay)
@@ -66,7 +67,7 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func handleMultipleRequests() async throws {
-        SwiftNetworkReplayProtocol.start()
+        RecordReplayStrategy.start()
         let posts = try await service.getPosts()
         let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
         let user = try await service.getUser(byId: 1)
@@ -80,12 +81,12 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func restrictToAllowedDomains() async throws {
-        SwiftNetworkReplayProtocol.start(urlKeywordsForReplay: ["google.com"])
+        RecordReplayStrategy.start(urlKeywordsForReplay: ["google.com"])
         let user = try await service.getUser(byId: 1)
         #expect(user.result.name == "Leanne Graham")
         #expect(!user.isSwiftNetworkReplay)
         
-        SwiftNetworkReplayProtocol.start(urlKeywordsForReplay: ["jsonplaceholder.typicode.com"])
+        RecordReplayStrategy.start(urlKeywordsForReplay: ["jsonplaceholder.typicode.com"])
         let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
         #expect(newPost.isSwiftNetworkReplay)
     }
