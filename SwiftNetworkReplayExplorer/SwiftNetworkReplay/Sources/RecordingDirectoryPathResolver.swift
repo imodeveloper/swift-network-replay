@@ -5,7 +5,6 @@
 //  Created by Ivan Borinschi on 22.11.2024.
 //
 
-import os.log
 import Foundation
 
 public protocol DirectoryManager {
@@ -23,12 +22,7 @@ public final class DefaultDirectoryManager: DirectoryManager {
     private var _folderName: String = ""
     
     var fileManager: FileManagerProtocol = DefaultFileManager()
-    
-    private let logger = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay",
-        category: "DirectoryManager"
-    )
-    
+        
     public func reset() {
         _directoryPath = ""
         _folderName = ""
@@ -58,13 +52,15 @@ public final class DefaultDirectoryManager: DirectoryManager {
                     atPath: directoryPath,
                     attributes: nil
                 )
+                FrameworkLogger.log(
+                    "Successfully created directory",
+                    info: ["Path": directoryPath]
+                )
             } catch {
-                os_log(
-                    "Failed to create directory at path: %{public}@. Error: %{public}@",
-                    log: logger,
+                FrameworkLogger.log(
+                    "Failed to create directory",
                     type: .error,
-                    directoryPath,
-                    error.localizedDescription
+                    info: ["Path": directoryPath, "Error": error.localizedDescription]
                 )
                 throw NSError(domain: "Directory Creation Failed", code: -1, userInfo: nil)
             }
@@ -75,28 +71,21 @@ public final class DefaultDirectoryManager: DirectoryManager {
         if fileManager.fileExists(atPath: directoryPath) {
             do {
                 try fileManager.removeItem(atPath: directoryPath)
-                os_log(
-                    "Successfully removed directory at path: %{public}@",
-                    log: logger,
-                    type: .info,
-                    directoryPath
+                FrameworkLogger.log(
+                    "Successfully removed directory",
+                    info: ["Path": directoryPath]
                 )
             } catch {
-                os_log(
-                    "Failed to remove directory at path: %{public}@. Error: %{public}@",
-                    log: logger,
+                FrameworkLogger.log(
+                    "Failed to remove directory",
                     type: .error,
-                    directoryPath,
-                    error.localizedDescription
+                    info: ["Path": directoryPath, "Error": error.localizedDescription]
                 )
                 throw error
             }
         } else {
-            os_log(
-                "No directory exists at path: %{public}@",
-                log: logger,
-                type: .info,
-                directoryPath
+            FrameworkLogger.log(
+                "No directory exists at path", info: ["Path": directoryPath]
             )
         }
     }

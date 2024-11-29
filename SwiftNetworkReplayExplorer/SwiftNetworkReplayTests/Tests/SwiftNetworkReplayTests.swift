@@ -23,7 +23,7 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func addAndReadNewRecord() async throws {
-        SwiftNetworkReplay.start(record: true)
+        SwiftNetworkReplay.start(isRecordingEnabled: true)
         try SwiftNetworkReplay.removeRecordingDirectory()
         
         // Perform the GET request
@@ -80,12 +80,12 @@ struct SwiftNetworkReplayTests {
     
     @Test
     func restrictToAllowedDomains() async throws {
-        SwiftNetworkReplay.start(replayUrlsWithKeywords: ["google.com"])
+        SwiftNetworkReplay.start(urlKeywordsForReplay: ["google.com"])
         let user = try await service.getUser(byId: 1)
         #expect(user.result.name == "Leanne Graham")
         #expect(!user.isSwiftNetworkReplay)
         
-        SwiftNetworkReplay.start(replayUrlsWithKeywords: ["jsonplaceholder.typicode.com"])
+        SwiftNetworkReplay.start(urlKeywordsForReplay: ["jsonplaceholder.typicode.com"])
         let newPost = try await service.sendPost(title: "Hello World", body: "This is a test", userId: 1)
         #expect(newPost.isSwiftNetworkReplay)
     }

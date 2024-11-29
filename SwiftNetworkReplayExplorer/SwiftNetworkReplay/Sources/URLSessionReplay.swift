@@ -5,7 +5,6 @@
 //  Created by Ivan Borinschi on 22.11.2024.
 //
 
-import os.log
 import Foundation
 
 public protocol URLSessionReplay {
@@ -26,11 +25,7 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     var fileManager: FileManagerProtocol = DefaultFileManager()
     var recordingDirectoryManager: DirectoryManager = DefaultDirectoryManager()
     var fileNameResolver: RequestFileNameGenerator = DefaultRequestFileNameGenerator()
-    
-    private let logger = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "SessionReplay"
-    )
-    
+        
     public func doesRecordingExistsFor(request: URLRequest) -> Bool {
         let fileURL = getFileUrl(request: request)
         return fileManager.fileExists(atPath: fileURL.path)
@@ -38,43 +33,28 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
     
     public func isSessionReady() -> Bool {
         if recordingDirectoryManager.directoryPath.isEmpty {
-            os_log(
-                "Error: recordingDirectoryPath is not set.",
-                log: logger,
-                type: .error
-            )
+            FrameworkLogger.log("Error: recordingDirectoryPath is not set.", type: .error)
             return false
         }
         return true
     }
     
-    /// Performs a request, records the response, and replays it.
-    /// - Parameters:
-    ///   - fileURL: The file URL to save the recorded response.
-    ///   - request: The URL request to execute.
-    /// - Returns: A tuple containing the HTTP URL response and the response data.
-    /// - Throws: An error if the operation fails.
     public func performRequestAndRecord(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
-        
         do {
-            // Ensure the recording directory exists.
             try recordingDirectoryManager.createDirectoryIfNeeded()
         } catch {
             throw error
         }
 
-        // Update the request with a custom header.
         var newRequest = request
         newRequest.setValue("true", forHTTPHeaderField: "X-SwiftNetworkReplay")
         
-        // Execute the request using async/await.
         let (responseData, httpResponse) = try await session.asyncData(for: newRequest)
 
         guard let httpResponse = httpResponse as? HTTPURLResponse else {
             throw NSError(domain: "Invalid Response", code: -1, userInfo: nil)
         }
         
-        // Process and record the response.
         let recordedResponseData = try dataTaskSerializer.encode(
             request: newRequest,
             responseData: responseData,
@@ -84,28 +64,22 @@ public final class DefaultURLSessionReplay: URLSessionReplay {
         let fileUrl = getFileUrl(request: newRequest)
         try recordedResponseData.write(to: fileUrl, options: .atomic)
         
-        os_log(
-            "Successfully recorded response for URL: %{public}@ to file: %{public}@",
-            log: logger,
-            type: .info,
-            request.url?.absoluteString ?? "Unknown URL",
-            fileUrl.absoluteString
+        FrameworkLogger.log(
+            "Successfully recorded response for URL",
+            info: ["URL": request.url?.absoluteString ?? "Unknown URL", "File Path": fileUrl.absoluteString]
         )
         
-        // Replay the response and return the result.
         return try await replayRecordFor(request: newRequest)
     }
     
     public func replayRecordFor(request: URLRequest) async throws -> (httpURLResponse: HTTPURLResponse, responseData: Data) {
-        
         let recordedData = try Data(contentsOf: getFileUrl(request: request))
         
         guard let result = try? dataTaskSerializer.decode(request: request, data: recordedData) else {
-            os_log(
-                "Failed to parse recorded data for URL: %{public}@",
-                log: logger,
+            FrameworkLogger.log(
+                "Failed to parse recorded data",
                 type: .error,
-                request.url?.absoluteString ?? "Missing URL"
+                info: ["URL": request.url?.absoluteString ?? "Missing URL"]
             )
             throw NSError(domain: "Invalid Recorded Data", code: -2, userInfo: nil)
         }
@@ -156,3 +130,4 @@ extension URLSession {
         }
     }
 }
+

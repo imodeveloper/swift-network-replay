@@ -6,64 +6,43 @@
 //
 
 import Foundation
-import os.log
 
 public final class SwiftNetworkReplay: URLProtocol {
     
-    private static var isRecording: Bool = false
+    private static var isRecordingEnabled: Bool = false
+    private static var urlKeywordsForReplay: [String] = []
     static var sessionReplay: URLSessionReplay = DefaultURLSessionReplay()
-    private static var replayUrlsWithKeywords: [String] = []
-    
-    private static let logger = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "SwiftNetworkReplay", category: "Networking"
-    )
+
+    // MARK: - URLProtocol Overrides
 
     public override class func canInit(with request: URLRequest) -> Bool {
-        if request.value(forHTTPHeaderField: "X-SwiftNetworkReplay") != nil {
+        // Check if the request contains the replay-specific header
+        if hasReplayHeader(in: request) {
             return false
         }
         
-        guard let url = request.url else { return false }
-        let isHttpRequest = url.scheme == "http" || url.scheme == "https"
-        
-        if isHttpRequest {
-            if !replayUrlsWithKeywords.isEmpty {
-                // Check if the request URL contains any of the specified keywords
-                let urlString = url.absoluteString
-                let containsKeyword = replayUrlsWithKeywords.contains { keyword in
-                    urlString.contains(keyword)
-                }
-                
-                if !containsKeyword {
-                    return false
-                }
-            }
-            os_log(
-                "Intercepting request: %{public}@",
-                log: logger,
-                type: .info, url.absoluteString
-            )
+        // Validate the URL and its scheme
+        guard let url = request.url, isHttpRequest(url: url) else {
+            return false
         }
-        return isHttpRequest
+        
+        // If keywords are provided, ensure the URL matches one of them
+        if !urlKeywordsForReplay.isEmpty && !containsReplayKeyword(in: url) {
+            return false
+        }
+        
+        FrameworkLogger.log("Intercepting request", info: ["URL": url.absoluteString])
+        return true
     }
 
     public override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        os_log(
-            "Canonicalizing request: %{public}@",
-            log: logger,
-            type: .info,
-            request.url?.absoluteString ?? "Unknown URL"
-        )
+        FrameworkLogger.log("Canonicalizing request", info: ["URL": request.url?.absoluteString ?? "Unknown URL"])
         return request
     }
     
     public override func startLoading() {
         guard let url = request.url else {
-            os_log(
-                "Failed: Invalid URL in request",
-                log: Self.logger,
-                type: .error
-            )
+            FrameworkLogger.log("Failed: Invalid URL in request", type: .error)
             let error = NSError(domain: "Invalid URL", code: -1, userInfo: nil)
             client?.urlProtocol(self, didFailWithError: error)
             return
@@ -75,40 +54,29 @@ public final class SwiftNetworkReplay: URLProtocol {
             return
         }
         
-        os_log(
-            "Start loading for URL: %{public}@",
-            log: Self.logger,
-            type: .info,
-            url.absoluteString
-        )
+        FrameworkLogger.log("Start loading for URL", info: ["URL": url.absoluteString])
         
         var newRequest = request
         newRequest.setValue("true", forHTTPHeaderField: "X-SwiftNetworkReplay")
         
-        if Self.sessionReplay.doesRecordingExistsFor(request: newRequest) && !Self.isRecording {
+        if Self.sessionReplay.doesRecordingExistsFor(request: newRequest) && !Self.isRecordingEnabled {
             Task {
                 do {
                     let result = try await Self.sessionReplay.replayRecordFor(request: newRequest)
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
-                    os_log(
-                        "Failed to replay URL: %{public}@. Error: %{public}@",
-                        log: Self.logger,
+                    FrameworkLogger.log(
+                        "Failed to replay URL",
                         type: .error,
-                        url.absoluteString,
-                        error.localizedDescription
+                        info: ["URL": url.absoluteString, "Error": error.localizedDescription]
                     )
                     client?.urlProtocol(self, didFailWithError: error)
                 }
             }
-            
-        } else if Self.isRecording {
-            
-            os_log(
-                "Recording mode is active. Performing live request for URL: %{public}@",
-                log: Self.logger,
-                type: .info,
-                request.url?.absoluteString ?? "missing url"
+        } else if Self.isRecordingEnabled {
+            FrameworkLogger.log(
+                "Recording mode is active. Performing live request",
+                info: ["URL": request.url?.absoluteString ?? "missing url"]
             )
             
             Task {
@@ -116,22 +84,21 @@ public final class SwiftNetworkReplay: URLProtocol {
                     let result = try await Self.sessionReplay.performRequestAndRecord(request: request)
                     replay(url: url, httpURLResponse: result.httpURLResponse, responseData: result.responseData)
                 } catch {
-                    os_log(
-                        "Failed Performing live request for URL: %{public}@",
-                        log: Self.logger,
+                    FrameworkLogger.log(
+                        "Failed performing live request",
                         type: .error,
-                        error.localizedDescription
+                        info: ["URL": request.url?.absoluteString ?? "Unknown URL", "Error": error.localizedDescription]
                     )
                 }
             }
-            
         } else {
-            os_log(
-                "No record was found for: %{public}@ %{public}@",
-                log: Self.logger,
+            FrameworkLogger.log(
+                "No record was found for request",
                 type: .error,
-                url.absoluteString,
-                Self.sessionReplay.getFileUrl(request: request).absoluteString
+                info: [
+                    "Request URL": url.absoluteString,
+                    "Recording File URL": Self.sessionReplay.getFileUrl(request: request).absoluteString
+                ]
             )
             let error = NSError(domain: "No record was found", code: -2, userInfo: nil)
             client?.urlProtocol(self, didFailWithError: error)
@@ -139,14 +106,14 @@ public final class SwiftNetworkReplay: URLProtocol {
     }
     
     public override func stopLoading() {
-        os_log(
-            "Stopped loading for URL: %{public}@",
-            log: Self.logger,
-            type: .info,
-            request.url?.absoluteString ?? "Unknown URL"
+        FrameworkLogger.log(
+            "Stopped loading for URL",
+            info: ["URL": request.url?.absoluteString ?? "Unknown URL"]
         )
     }
     
+    // MARK: - Replay Logic
+
     private func replay(
         url: URL,
         httpURLResponse: HTTPURLResponse,
@@ -155,24 +122,21 @@ public final class SwiftNetworkReplay: URLProtocol {
         client?.urlProtocol(self, didReceive: httpURLResponse, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: responseData)
         client?.urlProtocolDidFinishLoading(self)
-        os_log(
-            "Did replay data for URL: %{public}@",
-            log: Self.logger,
-            type: .info,
-            url.absoluteString
-        )
+        FrameworkLogger.log("Replayed data", info: ["URL": url.absoluteString])
     }
     
+    // MARK: - Start/Stop Replay
+
     public static func start(
         dirrectoryPath: String = #file,
         sessionFolderName: String = #function,
-        record: Bool = false,
-        replayUrlsWithKeywords: [String] = []
+        isRecordingEnabled: Bool = false,
+        urlKeywordsForReplay: [String] = []
     ) {
         URLProtocol.registerClass(SwiftNetworkReplay.self)
         Self.sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
-        Self.isRecording = record
-        Self.replayUrlsWithKeywords = replayUrlsWithKeywords
+        Self.isRecordingEnabled = isRecordingEnabled
+        Self.urlKeywordsForReplay = urlKeywordsForReplay
     }
     
     public static func stop() {
@@ -181,5 +145,23 @@ public final class SwiftNetworkReplay: URLProtocol {
     
     public static func removeRecordingDirectory() throws {
         try Self.sessionReplay.removeRecordingSessionFolder()
+    }
+    
+    // MARK: - Helper Methods
+
+    private class func hasReplayHeader(in request: URLRequest) -> Bool {
+        return request.value(forHTTPHeaderField: "X-SwiftNetworkReplay") != nil
+    }
+
+    private class func isHttpRequest(url: URL) -> Bool {
+        guard let scheme = url.scheme else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
+    private class func containsReplayKeyword(in url: URL) -> Bool {
+        let urlString = url.absoluteString
+        return urlKeywordsForReplay.contains { keyword in
+            urlString.contains(keyword)
+        }
     }
 }
