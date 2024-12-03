@@ -72,11 +72,11 @@ struct User: Codable {
 import Foundation
 
 // MARK: - JsonplaceholderServiceError
-enum JsonplaceholderServiceError: Error {
+enum JsonplaceholderServiceError: Error, LocalizedError {
     case invalidHTTPResponse(URL, Int?)
     case failedToDecode(URL, String)
     
-    var localizedDescription: String {
+    public var errorDescription: String? {
         switch self {
         case .invalidHTTPResponse(let url, let statusCode):
             return "Invalid HTTP response for URL: \(url.absoluteString). Status code: \(statusCode ?? -1)"

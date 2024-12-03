@@ -1,11 +1,11 @@
 //
-//  RecordReplayStrategy.swift
+//  RequestRecordingAndReplayingStrategy.swift
 //  SwiftNetworkReplayExplorer
 //
 //  Created by Ivan Borinschi on 29.11.2024.
 //
 
-public enum RecordReplayStrategyError: Error {
+public enum RequestRecordingAndReplayingStrategyError: Error, LocalizedError {
     
     case missingStrategy
     case invalidUrlInRequest(URLRequest)
@@ -14,58 +14,49 @@ public enum RecordReplayStrategyError: Error {
     case failedToReplay(URL, Error)
     case failedToPerformLiveRequest(URL, Error)
     
-    var localizedDescription: String {
+    public var errorDescription: String? {
         switch self {
         case .invalidUrlInRequest(let request):
             return "Invalid URL in the request. Request: \(request.debugDescription)"
         case .sessionReplayNotConfigured:
             return "Session replay is not configured."
         case .noRecordFoundForRequest(let request, let fileUrl):
-            return "No record was found for the request. Request: \(request.debugDescription), Recording File URL: \(fileUrl.absoluteString)"
+            return "No record was found for the request.\nRequest: \(request.debugDescription),\nRecording File URL: \(fileUrl.absoluteString)"
         case .failedToReplay(let url, let error):
-            return "Failed to replay the URL: \(url.absoluteString). Error: \(error.localizedDescription)"
+            return "Failed to replay the\nURL: \(url.absoluteString).\nError: \(error.localizedDescription)"
         case .failedToPerformLiveRequest(let url, let error):
-            return "Failed to perform live request for URL: \(url.absoluteString). Error: \(error.localizedDescription)"
+            return "Failed to perform live request for\nURL: \(url.absoluteString).\nError: \(error.localizedDescription)"
         case .missingStrategy:
             return "Missing strategy"
         }
     }
 }
 
-public final class RecordReplayStrategy: NetworkHandlerStrategy {
+public final class RequestRecordingAndReplayingStrategy: RequestFilterStrategy, RequestHandlingStrategy {
     
     // MARK: - Start/Stop Replay
 
-    @discardableResult public static func start(
+    @discardableResult static func start(
         dirrectoryPath: String = #file,
         sessionFolderName: String = #function,
-        isRecordingEnabled: Bool = false,
-        urlKeywordsForReplay: [String] = []
-    ) -> RecordReplayStrategy {
-        URLProtocol.registerClass(NetworkHandler.self)
+        isRecordingEnabled: Bool = false
+    ) -> RequestRecordingAndReplayingStrategy {
         let sessionReplay = DefaultURLSessionReplay()
         sessionReplay.setSession(dirrectoryPath: dirrectoryPath, sessionFolderName: sessionFolderName)
-        let strategy = RecordReplayStrategy(
+        let strategy = RequestRecordingAndReplayingStrategy(
             sessionReplay: sessionReplay,
-            isRecordingEnabled: isRecordingEnabled,
-            urlKeywordsForReplay: urlKeywordsForReplay
+            isRecordingEnabled: isRecordingEnabled
         )
-        NetworkHandler.currentStrategy = strategy
         return strategy
-    }
-    
-    public static func stop() {
-        URLProtocol.unregisterClass(NetworkHandler.self)
     }
     
     private var sessionReplay: URLSessionReplay
     private var isRecordingEnabled: Bool = false
-    private var urlKeywordsForReplay: [String] = []
     
-    public init(sessionReplay: URLSessionReplay, isRecordingEnabled: Bool, urlKeywordsForReplay: [String]) {
+    
+    public init(sessionReplay: URLSessionReplay, isRecordingEnabled: Bool) {
         self.sessionReplay = sessionReplay
         self.isRecordingEnabled = isRecordingEnabled
-        self.urlKeywordsForReplay = urlKeywordsForReplay
     }
     
     public func removeRecordingSessionFolder() throws {
@@ -81,21 +72,17 @@ public final class RecordReplayStrategy: NetworkHandlerStrategy {
             return false
         }
         
-        if !urlKeywordsForReplay.isEmpty && !containsReplayKeyword(in: url) {
-            return false
-        }
-        
         FrameworkLogger.log("Intercepting request", info: ["URL": url.absoluteString])
         return true
     }
     
-    public func handle(request: URLRequest) async throws -> ReplayData {
+    public func handle(request: URLRequest) async throws -> NetworkStrategyResponse {
         guard let url = request.url else {
-            throw FrameworkLogger.logAndReturn(error: RecordReplayStrategyError.invalidUrlInRequest(request))
+            throw FrameworkLogger.logAndReturn(error: RequestRecordingAndReplayingStrategyError.invalidUrlInRequest(request))
         }
         
         guard sessionReplay.isSessionReady() else {
-            throw RecordReplayStrategyError.sessionReplayNotConfigured(request)
+            throw FrameworkLogger.logAndReturn(error: RequestRecordingAndReplayingStrategyError.sessionReplayNotConfigured(request))
         }
         
         FrameworkLogger.log("Start loading for URL", info: ["URL": url.absoluteString])
@@ -108,7 +95,9 @@ public final class RecordReplayStrategy: NetworkHandlerStrategy {
         } else if isRecordingEnabled {
             return try await recordAndPerformLiveRequest(newRequest: newRequest, url: url)
         } else {
-            throw RecordReplayStrategyError.noRecordFoundForRequest(newRequest, sessionReplay.getFileUrl(request: newRequest))
+            throw FrameworkLogger.logAndReturn(
+                error: RequestRecordingAndReplayingStrategyError.noRecordFoundForRequest(newRequest, sessionReplay.getFileUrl(request: newRequest))
+            )
         }
     }
     
@@ -122,42 +111,39 @@ public final class RecordReplayStrategy: NetworkHandlerStrategy {
         guard let scheme = url.scheme else { return false }
         return scheme == "http" || scheme == "https"
     }
-
-    private func containsReplayKeyword(in url: URL) -> Bool {
-        let urlString = url.absoluteString
-        return urlKeywordsForReplay.contains { keyword in
-            urlString.contains(keyword)
-        }
-    }
     
     private func shouldReplay(newRequest: URLRequest) -> Bool {
         return sessionReplay.doesRecordingExistsFor(request: newRequest) && !isRecordingEnabled
     }
 
-    private func replayRecordedRequest(newRequest: URLRequest, url: URL) async throws -> ReplayData {
+    private func replayRecordedRequest(newRequest: URLRequest, url: URL) async throws -> NetworkStrategyResponse {
         do {
             let result = try await sessionReplay.replayRecordFor(request: newRequest)
-            return ReplayData(
+            return NetworkStrategyResponse(
                 url: url,
                 httpURLResponse: result.httpURLResponse,
                 responseData: result.responseData
             )
         } catch {
-            throw RecordReplayStrategyError.failedToReplay(url, error)
+            throw FrameworkLogger.logAndReturn(
+                error: RequestRecordingAndReplayingStrategyError.failedToReplay(url, error)
+            )
         }
     }
 
-    private func recordAndPerformLiveRequest(newRequest: URLRequest, url: URL) async throws -> ReplayData {
+    private func recordAndPerformLiveRequest(newRequest: URLRequest, url: URL) async throws -> NetworkStrategyResponse {
         FrameworkLogger.log("Recording mode is active. Performing live request", info: ["URL": newRequest.url?.absoluteString ?? "missing url"])
         do {
             let result = try await sessionReplay.performRequestAndRecord(request: newRequest)
-            return ReplayData(
+            return NetworkStrategyResponse(
                 url: url,
                 httpURLResponse: result.httpURLResponse,
                 responseData: result.responseData
             )
         } catch {
-            throw RecordReplayStrategyError.failedToPerformLiveRequest(url, error)
+            throw FrameworkLogger.logAndReturn(
+                error: RequestRecordingAndReplayingStrategyError.failedToPerformLiveRequest(url, error)
+            )
         }
     }
 }

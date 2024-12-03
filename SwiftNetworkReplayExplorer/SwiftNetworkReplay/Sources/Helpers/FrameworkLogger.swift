@@ -33,7 +33,15 @@ public struct FrameworkLogger {
     }
     
     public static func logAndReturn(error: Error) -> Error {
-        Self.log(error.localizedDescription, type: .error)
+        Self.log("\(type(of: error))\(Self.getCaseName(of: error)) \n\(error.localizedDescription)", type: .error)
         return error
+    }
+    
+    private static func getCaseName(of error: Error) -> String {
+        let mirror = Mirror(reflecting: error)
+        if let label = mirror.children.first?.label {
+            return "." + label
+        }
+        return ""
     }
 }

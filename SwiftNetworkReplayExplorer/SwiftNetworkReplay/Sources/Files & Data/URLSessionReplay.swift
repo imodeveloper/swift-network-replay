@@ -17,25 +17,25 @@ public protocol URLSessionReplay {
     func removeRecordingSessionFolder() throws
 }
 
-public enum URLSessionReplayError: Error {
+public enum URLSessionReplayError: Error, LocalizedError {
     case invalidResponse(URLRequest)
     case invalidRecordedData(URLRequest)
     case unknownError
     case directoryCreationFailed(Error)
     case directoryRemovalFailed(Error)
     
-    var localizedDescription: String {
+    public var errorDescription: String? {
         switch self {
         case .invalidResponse(let request):
-            return "Invalid response for request: \(request.debugDescription)"
+            return "Invalid response for request:\n\(request.debugDescription)"
         case .invalidRecordedData(let request):
-            return "Invalid recorded data for request: \(request.debugDescription)"
+            return "Invalid recorded data for request:\n\(request.debugDescription)"
         case .unknownError:
             return "An unknown error occurred."
         case .directoryCreationFailed(let error):
-            return "Failed to create directory. Error: \(error.localizedDescription)"
+            return "Failed to create directory.\nError: \(error.localizedDescription)"
         case .directoryRemovalFailed(let error):
-            return "Failed to remove directory. Error: \(error.localizedDescription)"
+            return "Failed to remove directory.\nError: \(error.localizedDescription)"
         }
     }
 }

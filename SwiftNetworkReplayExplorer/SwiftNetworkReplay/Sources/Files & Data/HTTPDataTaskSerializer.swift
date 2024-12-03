@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HTTPDataTaskSerializerError: Error {
+public enum HTTPDataTaskSerializerError: Error, LocalizedError {
     case invalidUrlInTheRequest(URLRequest)
     case failedToDeserializeJSONData(URLRequest, Data)
     case responseDataIsMissingOrCorrupted(URLRequest)
@@ -15,7 +15,7 @@ public enum HTTPDataTaskSerializerError: Error {
     case statusCodeMissingOrInvalid(URLRequest)
     case failedToCreateHTTPURLResponse(URLRequest)
     
-    var localizedDescription: String {
+    public var errorDescription: String? {
         switch self {
         case .invalidUrlInTheRequest(let urlRequest):
             return "Invalid URL in the request, \nRequest:\(urlRequest.debugDescription)"

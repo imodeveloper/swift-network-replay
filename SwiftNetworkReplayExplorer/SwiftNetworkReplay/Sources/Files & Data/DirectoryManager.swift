@@ -7,11 +7,11 @@
 
 import Foundation
 
-public enum DirectoryManagerError: Error {
+public enum DirectoryManagerError: Error, LocalizedError {
     case directoryCreationFailed(String, Error?)
     case directoryRemovalFailed(String, Error?)
     
-    var localizedDescription: String {
+    public var errorDescription: String? {
         switch self {
         case .directoryCreationFailed(let path, let underlyingError):
             return "Failed to create directory at path: \(path)".addUnderliyngError(underlyingError)
